@@ -111,6 +111,7 @@ func ListenAndServeWithClose(sock string, addr string, handler http.Handler) (ss
 func (n *notifyContext) GetNotifyContextV1(w http.ResponseWriter, req *http.Request) {
 	n.Message = "Notify Context"
 	n.Code = "0"
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(n)
 
 }
@@ -153,6 +154,7 @@ func (n *notifyContext) SetupV1Routes(r *mux.Router) {
 
 //Batch worker recieve events and put it into event queue. It fires a Nats publisher every 5 seconds.
 func (n *notifyContext) BatchWorker(c chan notify.Error) error {
+	var key string
 	var be batchEvents
 	var newEvent notify.Error
 	be.EventMarker = make(map[string]uint32)
@@ -168,13 +170,14 @@ func (n *notifyContext) BatchWorker(c chan notify.Error) error {
 			subject := newEvent.GetSubject() //When we reach here, subject is not nil. Checked by Post handler.
 			log.Printf("\nBatch Get id is %d. subject is %s. Marker %d\n", id, subject, be.EventMarker[subject])
 
-			if be.EventMarker[subject] == (id + 1) {
+			key = fmt.Sprintf("%d-%s", id, subject)
+			if be.EventMarker[key] == 0xdeadbeef {
 				//we already have this id+subject marker, dont add it again.
-				log.Printf("\nDuplicated (id + subject) event found. Skip this one.\n", id, subject)
+				log.Printf("\nDuplicated key (%s) event found. Skip this one.\n", key)
 				continue
 			}
 
-			be.EventMarker[subject] = id + 1 //add one because it could be 0 when no key found
+			be.EventMarker[key] = 0xdeadbeef //add one because it could be 0 when no key found
 			be.Events = append(be.Events, timeEvent{Stamp: time.Now(), Event: newEvent})
 			log.Printf("Add Event id is %d. subject is %s\n", id, subject)
 			log.Print(be.Events)
