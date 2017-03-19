@@ -31,9 +31,8 @@ It actually does not support hex format. __--id 0x00000011__ always return 0. In
 
 Another issue is notify-error cannot hit a handler through unix socket for this server. It only works with ip:port. net.Listener do get messages from the socket but serverMux seems failed to direct it to a valid handler. If I use following command to send a POST to the server, it will hit the handler.
 
+`echo -e "POST /v1/errors HTTP/1.0\r\n" | sudo netcat -U /var/run/storageos/dataplane-notifications.sock`
 
-'echo -e "POST /v1/errors HTTP/1.0\r\n" | sudo netcat -U /var/run/storageos/dataplane-notifications.sock
-'
 I wrote tools to debug this issue by send/recieve raw data to/from the socket. The problem is the [Host] field of the http requst header sent by notify-error is not compatible with golang 1.6.2 net/http package which has the following code to check if the [Host] is valid.
  
         func validHostHeader(h string) bool {
